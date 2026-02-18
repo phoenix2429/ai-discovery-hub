@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,6 +15,10 @@ serve(async (req) => {
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -62,10 +67,8 @@ serve(async (req) => {
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "[]";
 
-    // Parse the JSON from the AI response
     let tools;
     try {
-      // Try to extract JSON array from potential markdown wrapping
       const jsonMatch = content.match(/\[[\s\S]*\]/);
       tools = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
     } catch {
@@ -73,7 +76,25 @@ serve(async (req) => {
       tools = [];
     }
 
-    return new Response(JSON.stringify({ tools, generatedAt: today }), {
+    if (tools.length > 0) {
+      // Delete old tools for today and insert fresh ones
+      await supabase.from("ai_tools").delete().eq("generated_at", today);
+
+      const rows = tools.map((t: any) => ({
+        name: t.name,
+        category: t.category,
+        description: t.description,
+        how_to_use: t.howToUse || "",
+        status: t.status || "New Launch",
+        url: t.url || "",
+        generated_at: today,
+      }));
+
+      const { error: insertError } = await supabase.from("ai_tools").insert(rows);
+      if (insertError) console.error("Insert error:", insertError);
+    }
+
+    return new Response(JSON.stringify({ tools, generatedAt: today, persisted: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

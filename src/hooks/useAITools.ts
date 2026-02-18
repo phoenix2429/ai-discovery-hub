@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -16,6 +16,38 @@ export function useAITools() {
   const [loading, setLoading] = useState(false);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
+  // Load stored tools from the database
+  const loadStoredTools = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("ai_tools")
+      .select("*")
+      .order("generated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error("Failed to load stored tools:", error);
+      return false;
+    }
+
+    if (data && data.length > 0) {
+      setTools(
+        data.map((row: any) => ({
+          name: row.name,
+          category: row.category,
+          description: row.description,
+          howToUse: row.how_to_use,
+          status: row.status,
+          url: row.url,
+        }))
+      );
+      setGeneratedAt(data[0].generated_at);
+      return true;
+    }
+    return false;
+  }, []);
+
+  // Fetch fresh tools from AI via edge function
   const fetchTools = useCallback(async () => {
     setLoading(true);
     try {
@@ -32,8 +64,8 @@ export function useAITools() {
         return;
       }
 
-      setTools(data.tools || []);
-      setGeneratedAt(data.generatedAt || null);
+      // Reload from DB after the edge function persists
+      await loadStoredTools();
     } catch (err) {
       console.error(err);
       toast({
@@ -44,7 +76,20 @@ export function useAITools() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadStoredTools]);
+
+  // On mount, load stored tools. If none exist, fetch fresh ones.
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true);
+      const hasStored = await loadStoredTools();
+      if (!hasStored) {
+        await fetchTools();
+      }
+      setLoading(false);
+    };
+    init();
+  }, [loadStoredTools, fetchTools]);
 
   return { tools, loading, generatedAt, fetchTools };
 }

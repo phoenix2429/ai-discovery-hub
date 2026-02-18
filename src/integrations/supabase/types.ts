@@ -14,7 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_tools: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          generated_at: string
+          how_to_use: string
+          id: string
+          name: string
+          status: string
+          url: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description: string
+          generated_at?: string
+          how_to_use?: string
+          id?: string
+          name: string
+          status?: string
+          url?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          generated_at?: string
+          how_to_use?: string
+          id?: string
+          name?: string
+          status?: string
+          url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

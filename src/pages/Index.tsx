@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useAITools } from "@/hooks/useAITools";
 import { ToolCard } from "@/components/ToolCard";
 import { Bot, RefreshCcw, Loader2 } from "lucide-react";
@@ -6,10 +5,6 @@ import { Button } from "@/components/ui/button";
 
 const Index = () => {
   const { tools, loading, generatedAt, fetchTools } = useAITools();
-
-  useEffect(() => {
-    fetchTools();
-  }, [fetchTools]);
 
   return (
     <div className="min-h-screen bg-background">
